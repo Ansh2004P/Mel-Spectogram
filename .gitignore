@@ -1,0 +1,27 @@
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Result folder contents (keep folder structure)
+result/*
+!result/.gitkeep
+
+# Sounds folder contents (keep folder structure)  
+sounds/*
+!sounds/.gitkeep
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
