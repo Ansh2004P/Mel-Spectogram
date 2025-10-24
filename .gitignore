@@ -7,11 +7,11 @@ __pycache__/
 *$py.class
 
 # Result folder contents (keep folder structure)
-result/*
+# result/*
 !result/.gitkeep
 
 # Sounds folder contents (keep folder structure)  
-sounds/*
+# sounds/*
 !sounds/.gitkeep
 
 # OS generated files
