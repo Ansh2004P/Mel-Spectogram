@@ -1,17 +1,14 @@
-import librosa
-import librosa.display
-import matplotlib.pyplot as plt
-import numpy as np
-import sys
 import os
+import sys
+import librosa
 import soundfile as sf
+import librosa.display
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import butter, filtfilt
 
 
 class MelSpectrogramPlotter:
-    """
-    A class to compute and plot mel spectrogram frames from an audio file.
-    """
-
     def __init__(
         self,
         audio_path,
@@ -20,6 +17,7 @@ class MelSpectrogramPlotter:
         frame_length=1.0,
         overlap=0.5,
         fmax=8000,
+        mode="mixed",   # NEW: choose between grunt, squeal, mixed
     ):
         self.audio_path = audio_path
         self.n_mels = n_mels
@@ -27,17 +25,17 @@ class MelSpectrogramPlotter:
         self.frame_length = frame_length
         self.overlap = overlap
         self.fmax = fmax
+        self.mode = mode.lower()
         self.sr = None
         self.audio = None
         self.frames = []
 
-        # Directory handling: create folder based on audio file name
         base_name = os.path.splitext(os.path.basename(audio_path))[0]
-        self.result_dir = os.path.join("result", base_name)
+        self.result_dir = os.path.join("result", f"{base_name}/{self.mode}")
+        
         os.makedirs(self.result_dir, exist_ok=True)
 
     def load_audio(self):
-        """Load audio from file."""
         self.audio, self.sr = librosa.load(self.audio_path, sr=None)
 
     def split_frames(self):
@@ -49,12 +47,19 @@ class MelSpectrogramPlotter:
             end = start + frame_size
             self.frames.append(self.audio[start:end])
 
-    def remove_silence(self, top_db=40):
-        """
-        Remove silence from the loaded audio using librosa.effects.split.
-        - top_db: threshold (in dB) below reference to consider as silence.
-        Returns a new audio array with silence removed.
-        """
+    def normalize_audio(self, audio):
+        return audio / np.max(np.abs(audio))
+
+    def pre_emphasize(self, audio, coeff=0.97):
+        return np.append(audio[0], audio[1:] - coeff * audio[:-1])
+
+    def remove_silence(self, top_db=None):
+        if top_db is None:
+            rms = librosa.feature.rms(y=self.audio).mean()
+            db = librosa.amplitude_to_db([rms])[0]
+            top_db = max(20, min(60, abs(db) * 0.6))
+            print(f"Auto top_db set to: {top_db}")
+
         intervals = librosa.effects.split(self.audio, top_db=top_db)
         processed_audio = np.concatenate(
             [self.audio[start:end] for start, end in intervals]
@@ -62,7 +67,6 @@ class MelSpectrogramPlotter:
         return processed_audio
 
     def compute_mel_spectrogram(self, frame):
-        """Compute mel spectrogram for a single frame."""
         S = librosa.feature.melspectrogram(
             y=frame,
             sr=self.sr,
@@ -72,20 +76,33 @@ class MelSpectrogramPlotter:
         )
         return librosa.power_to_db(S, ref=np.max)
 
+    def bandpass_filter(self, audio, sr):
+        if self.mode == "grunt":
+            low, high = 80, 800
+        elif self.mode == "squeal":
+            low, high = 500, 8000
+        else:  # mixed
+            low, high = 100, 8000
+
+        nyq = 0.5 * sr
+        low = low / nyq
+        high = high / nyq
+        b, a = butter(4, [low, high], btype="band")
+        return filtfilt(b, a, audio)
+
     def save_frame_plot(self, S_dB, frame_idx):
-        """Save spectrogram plot for a single frame."""
         plt.figure(figsize=(8, 4))
         librosa.display.specshow(
             S_dB,
             sr=self.sr,
             hop_length=self.hop_length,
             x_axis="time",
-            y_axis="mel",  # <- this gives mel scale
+            y_axis="mel",
             cmap="magma",
             fmax=self.fmax,
         )
         plt.colorbar(format="%+2.0f dB")
-        plt.title(f"Frame {frame_idx + 1}")
+        plt.title(f"{self.mode.capitalize()} | Frame {frame_idx + 1}")
         plt.tight_layout()
 
         output_path = os.path.join(self.result_dir, f"frame_{frame_idx + 1}.png")
@@ -94,18 +111,17 @@ class MelSpectrogramPlotter:
         print(f"Saved: {output_path}")
 
     def process(self, save_individual=True, show_plot=False):
-        """Run full pipeline and save plots per frame."""
         self.load_audio()
-
-        processed_audio = self.remove_silence(top_db=40)
+        self.audio = self.bandpass_filter(self.audio, self.sr)
+        self.audio = self.normalize_audio(self.audio)
+        self.audio = self.pre_emphasize(self.audio)
+        processed_audio = self.remove_silence()
 
         output_wav = os.path.join(self.result_dir, "audio_no_silence.wav")
         sf.write(output_wav, processed_audio, self.sr)
         print(f"Saved silence-removed audio: {output_wav}")
 
         self.audio = processed_audio
-
-        # Now continue as before
         self.split_frames()
 
         for i, frame in enumerate(self.frames):
@@ -119,9 +135,11 @@ class MelSpectrogramPlotter:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python mel_spectrogram.py path_to_audio_file")
+        print("Usage: python mel_spectrogram.py path_to_audio_file [mode]")
+        print("Modes: grunt | squeal | mixed (default: mixed)")
         sys.exit(1)
 
     audio_path = sys.argv[1]
-    plotter = MelSpectrogramPlotter(audio_path, fmax=8000)
+    mode = sys.argv[2] if len(sys.argv) > 2 else "mixed"
+    plotter = MelSpectrogramPlotter(audio_path, fmax=8000, mode=mode)
     plotter.process()

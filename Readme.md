@@ -11,7 +11,7 @@ A Python script for generating and visualizing mel spectrograms from audio files
 
 ## Prerequisites
 
-- Python 3.7 or higher
+- Python
 - Git (for cloning the repository)
 
 ## Installation
@@ -19,28 +19,24 @@ A Python script for generating and visualizing mel spectrograms from audio files
 ### 1. Clone the Repository
 
 ```bash
-git clone <your-repository-url>
-cd Spectogram
+git clone https://github.com/Ansh2004P/Mel-Spectogram
+cd Mel-Spectogram
 ```
 
-### 2. Create Virtual Environment
-
-**On Windows (using bash):**
+### 2. Setup the Environments
 ```bash
-python -m venv venv
-source venv/Scripts/activate
+    make create
 ```
 
-**On macOS/Linux:**
+### 3. Activate the Virtual Environment
 ```bash
-python -m venv venv
-source venv/bin/activate
+    . venv/Scripts/activate
 ```
 
-### 3. Install Dependencies
+### 4. (Optional) Check the python environment
 
 ```bash
-pip install -r requirements.txt
+    which python
 ```
 
 ## Usage
@@ -48,13 +44,13 @@ pip install -r requirements.txt
 ### Basic Usage
 
 ```bash
-python mel_spectogram.py path/to/your/audio/file.mp3
+make run AUDIO=example.mp3
 ```
 
 ### Example
 
 ```bash
-python mel_spectogram.py ./sounds/boar_sound.mp3
+make run AUDIO=example.mp3
 ```
 
 ### Parameters
